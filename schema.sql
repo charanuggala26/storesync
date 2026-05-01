@@ -1,0 +1,12 @@
+CREATE DATABASE IF NOT EXISTS storesync_db;
+USE storesync_db;
+CREATE TABLE IF NOT EXISTS products(
+id INT AUTO_INCREMENT PRIMARY KEY,
+product_name VARCHAR(255),
+barcode VARCHAR(100),
+category VARCHAR(100),
+quantity INT DEFAULT 0,
+price DECIMAL(10,2),
+expiry_date DATE,
+created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

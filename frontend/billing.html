@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Billing — StoreSync</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.revealed{opacity:1;transform:none}
+
+/* Product grid */
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.prod-card{
+  background:var(--bg-surface2);border:1.5px solid var(--border);border-radius:14px;
+  padding:14px;cursor:pointer;transition:all var(--transition);
+  display:flex;flex-direction:column;gap:6px;
+}
+.prod-card:hover{border-color:var(--indigo);transform:translateY(-2px);box-shadow:var(--shadow)}
+.prod-card.out{opacity:.55;cursor:not-allowed}
+.prod-card-name{font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3}
+.prod-card-price{font-size:16px;font-weight:800;color:var(--indigo)}
+.prod-card-stock{font-size:11px;color:var(--text-muted)}
+.prod-card-emoji{font-size:28px;margin-bottom:4px}
+
+/* Category tabs */
+.cat-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.cat-tab{
+  padding:6px 14px;border-radius:99px;font-size:13px;font-weight:600;
+  border:1.5px solid var(--border);background:var(--bg-surface2);
+  color:var(--text-secondary);cursor:pointer;transition:all var(--transition)
+}
+.cat-tab.active{background:var(--indigo);border-color:var(--indigo);color:#fff}
+
+/* Cart */
+.cart-item{
+  display:flex;align-items:center;gap:12px;padding:12px;
+  border-radius:12px;background:var(--bg-surface2);
+  border:1px solid var(--border);margin-bottom:8px;
+  animation:cartItemIn .25s cubic-bezier(.34,1.56,.64,1)
+}
+@keyframes cartItemIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.cart-item-name{font-size:13px;font-weight:600;flex:1}
+.cart-item-price{font-size:12px;color:var(--text-muted)}
+.qty-ctrl{display:flex;align-items:center;gap:8px}
+.qty-btn{
+  width:28px;height:28px;border-radius:8px;border:none;cursor:pointer;
+  background:var(--bg-surface);border:1px solid var(--border);
+  font-size:16px;font-weight:700;color:var(--text-primary);
+  display:flex;align-items:center;justify-content:center;
+  transition:all var(--transition)
+}
+.qty-btn:hover{background:var(--indigo);color:#fff;border-color:var(--indigo)}
+.qty-val{font-weight:700;min-width:24px;text-align:center}
+.remove-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px}
+.remove-btn:hover{color:var(--rose);background:rgba(244,63,94,.1)}
+.remove-btn svg{width:15px;height:15px}
+
+/* Totals */
+.totals-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:14px}
+.totals-row.grand{font-size:20px;font-weight:800;color:var(--indigo);border-top:2px solid var(--border);margin-top:8px;padding-top:14px}
+
+/* Payment method */
+.pay-method{display:flex;gap:8px}
+.pay-btn{
+  flex:1;padding:10px;border-radius:10px;border:2px solid var(--border);
+  background:var(--bg-surface2);font-size:13px;font-weight:600;cursor:pointer;
+  transition:all var(--transition);color:var(--text-secondary);text-align:center
+}
+.pay-btn.active{border-color:var(--indigo);background:rgba(99,102,241,.08);color:var(--indigo)}
+
+/* Receipt modal */
+.receipt{font-family:'Courier New',monospace;max-width:340px;margin:0 auto;padding:24px;background:#fff;color:#000;border-radius:4px}
+.receipt-header{text-align:center;margin-bottom:16px}
+.receipt-title{font-size:20px;font-weight:800;letter-spacing:2px}
+.receipt-sub{font-size:11px;color:#555;margin-top:4px}
+.receipt-divider{border:none;border-top:1px dashed #aaa;margin:12px 0}
+.receipt-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.receipt-total{display:flex;justify-content:space-between;font-size:15px;font-weight:800;margin-top:8px;padding-top:8px;border-top:2px solid #000}
+.receipt-footer{text-align:center;font-size:11px;color:#555;margin-top:16px}
+
+/* Discount row */
+.discount-row{display:flex;align-items:center;gap:10px}
+.discount-row input{width:70px;text-align:center}
+
+/* Billing layout */
+.billing-layout{display:grid;grid-template-columns:1fr 400px;gap:20px;align-items:start}
+@media(max-width:900px){.billing-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="preloader">
+  <div class="ss-logo-loader"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M13 11h.01M13 15h.01M9 15h.01M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg></div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Loading Billing…</div>
+</div>
+
+<div id="appNavbar"></div>
+<nav id="sidebar"></nav>
+
+<main class="ss-main page-enter" id="mainContent">
+  <div class="reveal" style="margin-bottom:24px">
+    <h1 class="section-title">🧾 Billing / POS</h1>
+    <p class="section-sub">Search products, build cart, generate receipt</p>
+  </div>
+
+  <div class="billing-layout">
+    <!-- LEFT: Product selector -->
+    <div>
+      <!-- Search -->
+      <div class="card reveal" style="margin-bottom:16px">
+        <div class="card-body" style="padding:16px">
+          <div style="position:relative">
+            <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-muted)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input id="productSearch" class="form-control" style="padding-left:38px" placeholder="Search by name or scan barcode…" oninput="searchProducts()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Category tabs -->
+      <div class="cat-tabs reveal" id="catTabs"></div>
+
+      <!-- Products grid -->
+      <div class="card reveal">
+        <div class="card-header" style="padding:16px 20px 12px">
+          <div class="card-title">Products</div>
+          <div style="font-size:12px;color:var(--text-muted)" id="productCount"></div>
+        </div>
+        <div class="card-body" style="padding:12px 16px 20px;max-height:540px;overflow-y:auto">
+          <div id="productGrid" class="product-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Cart -->
+    <div style="position:sticky;top:calc(var(--navbar-h) + 20px)">
+      <div class="card reveal">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🛒 Cart <span id="cartBadge" style="background:var(--indigo);color:#fff;border-radius:99px;font-size:11px;padding:2px 8px;margin-left:6px">0</span></div>
+          </div>
+          <button style="font-size:12px;color:var(--rose);font-weight:600;background:none;border:none;cursor:pointer" onclick="clearCart()">Clear All</button>
+        </div>
+        <div class="card-body">
+          <!-- Customer -->
+          <div class="form-group">
+            <label class="form-label">Customer Name (optional)</label>
+            <input id="customerName" class="form-control" placeholder="Walk-in customer">
+          </div>
+
+          <!-- Cart items -->
+          <div id="cartItems" style="min-height:80px;max-height:300px;overflow-y:auto;margin-bottom:16px">
+            <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:14px">
+              Cart is empty — add products
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <!-- Discount -->
+          <div class="discount-row" style="margin-bottom:12px">
+            <span style="font-size:14px;color:var(--text-secondary);white-space:nowrap">Discount %</span>
+            <input id="discountPct" type="number" min="0" max="100" value="0" class="form-control" oninput="calcTotals()">
+            <span style="font-size:14px;color:var(--text-secondary);white-space:nowrap">GST %</span>
+            <input id="taxPct" type="number" min="0" max="50" value="0" class="form-control" oninput="calcTotals()">
+          </div>
+
+          <!-- Totals -->
+          <div class="totals-row"><span style="color:var(--text-secondary)">Subtotal</span><span id="subtotal">₹0.00</span></div>
+          <div class="totals-row"><span style="color:var(--text-secondary)">Discount</span><span id="discountAmt" style="color:var(--emerald)">-₹0.00</span></div>
+          <div class="totals-row"><span style="color:var(--text-secondary)">GST</span><span id="taxAmt">₹0.00</span></div>
+          <div class="totals-row grand"><span>Grand Total</span><span id="grandTotal">₹0.00</span></div>
+
+          <!-- Payment method -->
+          <div style="margin-top:16px;margin-bottom:16px">
+            <label class="form-label">Payment Method</label>
+            <div class="pay-method">
+              <div class="pay-btn active" onclick="selectPay(this,'cash')">💵 Cash</div>
+              <div class="pay-btn" onclick="selectPay(this,'card')">💳 Card</div>
+              <div class="pay-btn" onclick="selectPay(this,'upi')">📱 UPI</div>
+            </div>
+          </div>
+          <input type="hidden" id="payMethod" value="cash">
+
+          <button class="btn btn-primary btn-lg" style="width:100%" onclick="generateBill()">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Generate Bill
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Receipt Modal -->
+<div class="modal-overlay" id="receiptModal" onclick="if(event.target===this)closeModal('receiptModal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 class="modal-title">Bill Receipt</h2>
+      <button class="modal-close" onclick="closeModal('receiptModal')"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="receiptContent"></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button class="btn btn-primary" style="flex:1" onclick="downloadBill()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Download PDF
+        </button>
+        <button class="btn btn-secondary" onclick="printReceipt()">🖨️ Print</button>
+        <button class="btn btn-secondary" onclick="closeModal('receiptModal');clearCart()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+buildShell('billing');
+
+let products = [], cart = [], activeCategory = '', payMethod = 'cash';
+
+// ── Load products ──────────────────────────────────────────
+async function loadProducts() {
+  try {
+    const res = await fetch('/api/products');
+    const raw = await res.json();
+    products = raw.map(p => ({
+      id:       p.id,
+      name:     p.product_name || p.name || '',
+      price:    parseFloat(p.price || 0),
+      stock:    parseInt(p.quantity || 0),
+      category: p.category || 'Other',
+      barcode:  p.barcode || ''
+    }));
+    buildCategoryTabs();
+    renderProducts();
+  } catch(e) { console.error(e); }
+}
+
+function buildCategoryTabs() {
+  const cats = ['All', ...new Set(products.map(p => p.category).filter(Boolean)).values()];
+  document.getElementById('catTabs').innerHTML = cats.map(c =>
+    `<div class="cat-tab ${c==='All'?'active':''}" onclick="setCategory('${c}',this)">${c}</div>`
+  ).join('');
+}
+
+function setCategory(cat, el) {
+  activeCategory = cat === 'All' ? '' : cat;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderProducts();
+}
+
+function searchProducts() {
+  renderProducts();
+}
+
+function renderProducts() {
+  const q   = document.getElementById('productSearch').value.toLowerCase();
+  const list = products.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q) || p.barcode.includes(q);
+    const matchC = !activeCategory || p.category === activeCategory;
+    return matchQ && matchC;
+  });
+  document.getElementById('productCount').textContent = list.length + ' items';
+
+  const emojis = { Dairy:'🥛', Snacks:'🍟', Bakery:'🍞', Grocery:'🧂', Noodles:'🍜', Dental:'🪥', Detergent:'🧴', 'Personal Care':'🧼', Electronics:'💻', Other:'📦' };
+
+  document.getElementById('productGrid').innerHTML = list.map(p => `
+    <div class="prod-card ${p.stock===0?'out':''}" onclick="${p.stock>0?`addToCart(${p.id})`:''}">
+      <div class="prod-card-emoji">${emojis[p.category]||'📦'}</div>
+      <div class="prod-card-name">${p.name}</div>
+      <div class="prod-card-price">₹${p.price.toFixed(2)}</div>
+      <div class="prod-card-stock">${p.stock===0?'<span style="color:var(--rose)">Out of Stock</span>':p.stock<=5?`<span style="color:var(--amber)">Low: ${p.stock}</span>`:`Stock: ${p.stock}`}</div>
+      ${p.stock>0?`<div style="margin-top:6px"><span class="badge badge-blue" style="font-size:10px">+ Add</span></div>`:''}
+    </div>
+  `).join('') || '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">No products found</div>';
+}
+
+// ── Cart ───────────────────────────────────────────────────
+function addToCart(id) {
+  const p = products.find(x => x.id === id);
+  if (!p || p.stock === 0) return;
+  const ex = cart.find(i => i.id === id);
+  if (ex) {
+    if (ex.qty >= p.stock) { showToast('Limit reached','Max stock for this item reached','warning'); return; }
+    ex.qty++;
+  } else {
+    cart.push({ ...p, qty: 1 });
+  }
+  renderCart();
+  // Brief highlight on product card
+  showToast('Added', `${p.name} added to cart`, 'success');
+}
+
+function changeQty(id, delta) {
+  const item = cart.find(i => i.id === id);
+  const prod = products.find(p => p.id === id);
+  if (!item) return;
+  if (delta === 1 && item.qty >= prod.stock) { showToast('Limit','Stock limit reached','warning'); return; }
+  item.qty += delta;
+  if (item.qty <= 0) { cart = cart.filter(i => i.id !== id); }
+  renderCart();
+}
+
+function removeFromCart(id) { cart = cart.filter(i => i.id !== id); renderCart(); }
+function clearCart() { cart = []; renderCart(); }
+
+function renderCart() {
+  const badge = document.getElementById('cartBadge');
+  const totalItems = cart.reduce((s,i) => s+i.qty, 0);
+  badge.textContent = totalItems;
+
+  const container = document.getElementById('cartItems');
+  if (!cart.length) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:14px">Cart is empty — add products</div>';
+    calcTotals();
+    return;
+  }
+  container.innerHTML = cart.map(i => `
+    <div class="cart-item">
+      <div style="flex:1;min-width:0">
+        <div class="cart-item-name">${i.name}</div>
+        <div class="cart-item-price">₹${i.price.toFixed(2)} × ${i.qty} = ₹${(i.price*i.qty).toFixed(2)}</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty(${i.id},-1)">−</button>
+        <span class="qty-val">${i.qty}</span>
+        <button class="qty-btn" onclick="changeQty(${i.id},1)">+</button>
+        <button class="remove-btn" onclick="removeFromCart(${i.id})"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+    </div>
+  `).join('');
+  calcTotals();
+}
+
+function calcTotals() {
+  const sub      = cart.reduce((s,i) => s + i.price*i.qty, 0);
+  const discPct  = parseFloat(document.getElementById('discountPct').value) || 0;
+  const taxPct   = parseFloat(document.getElementById('taxPct').value) || 0;
+  const discAmt  = sub * discPct / 100;
+  const taxAmt   = (sub - discAmt) * taxPct / 100;
+  const total    = sub - discAmt + taxAmt;
+
+  document.getElementById('subtotal').textContent    = '₹' + sub.toFixed(2);
+  document.getElementById('discountAmt').textContent = '-₹' + discAmt.toFixed(2);
+  document.getElementById('taxAmt').textContent      = '₹' + taxAmt.toFixed(2);
+  document.getElementById('grandTotal').textContent  = '₹' + total.toFixed(2);
+}
+
+function selectPay(el, method) {
+  payMethod = method;
+  document.getElementById('payMethod').value = method;
+  document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── Generate bill ──────────────────────────────────────────
+function generateBill() {
+  if (!cart.length) { showToast('Empty Cart','Add products before billing','warning'); return; }
+
+  const sub     = cart.reduce((s,i) => s + i.price*i.qty, 0);
+  const discPct = parseFloat(document.getElementById('discountPct').value) || 0;
+  const taxPct  = parseFloat(document.getElementById('taxPct').value) || 0;
+  const discAmt = sub * discPct / 100;
+  const taxAmt  = (sub - discAmt) * taxPct / 100;
+  const total   = sub - discAmt + taxAmt;
+  const billNo  = 'SS' + Date.now().toString().slice(-8);
+  const now     = new Date().toLocaleString('en-IN');
+  const customer = document.getElementById('customerName').value || 'Walk-in Customer';
+  const payLabel = { cash:'Cash', card:'Card', upi:'UPI' }[payMethod] || 'Cash';
+
+  document.getElementById('receiptContent').innerHTML = `
+    <div class="receipt" id="receiptPrint">
+      <div class="receipt-header">
+        <div class="receipt-title">STORESYNC</div>
+        <div class="receipt-sub">Smart Retail Management</div>
+        <div class="receipt-sub" style="margin-top:6px">Bill No: ${billNo}</div>
+        <div class="receipt-sub">Date: ${now}</div>
+        <div class="receipt-sub">Customer: ${customer}</div>
+      </div>
+      <hr class="receipt-divider">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:8px">
+        <span>ITEM</span><span style="display:flex;gap:40px"><span>QTY</span><span>AMOUNT</span></span>
+      </div>
+      ${cart.map(i=>`<div class="receipt-row"><span>${i.name}</span><span style="display:flex;gap:40px"><span>${i.qty}</span><span>₹${(i.price*i.qty).toFixed(2)}</span></span></div>`).join('')}
+      <hr class="receipt-divider">
+      <div class="receipt-row"><span>Subtotal</span><span>₹${sub.toFixed(2)}</span></div>
+      ${discAmt>0?`<div class="receipt-row"><span>Discount (${discPct}%)</span><span>-₹${discAmt.toFixed(2)}</span></div>`:''}
+      ${taxAmt>0?`<div class="receipt-row"><span>GST (${taxPct}%)</span><span>₹${taxAmt.toFixed(2)}</span></div>`:''}
+      <div class="receipt-total"><span>TOTAL</span><span>₹${total.toFixed(2)}</span></div>
+      <div class="receipt-row" style="margin-top:8px"><span>Payment</span><span>${payLabel}</span></div>
+      <hr class="receipt-divider">
+      <div class="receipt-footer">Thank you for shopping with us!<br>Powered by StoreSync</div>
+    </div>
+  `;
+
+  document.getElementById('receiptModal').classList.add('open');
+}
+
+async function downloadBill() {
+  // Update stock via API
+  for (const item of cart) {
+    try {
+      await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, qty: item.qty })
+      });
+    } catch(e) { console.warn(e); }
+  }
+
+  const el = document.getElementById('receiptPrint');
+  html2pdf().set({
+    margin: 0.3,
+    filename: 'StoreSync_Bill.pdf',
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'a5', orientation: 'portrait' }
+  }).from(el).save();
+
+  showToast('Downloaded', 'Bill PDF saved. Stock updated.', 'success');
+  setTimeout(() => {
+    closeModal('receiptModal');
+    clearCart();
+    document.getElementById('customerName').value = '';
+    document.getElementById('discountPct').value = '0';
+    document.getElementById('taxPct').value = '0';
+    loadProducts();
+  }, 1500);
+}
+
+function printReceipt() {
+  const content = document.getElementById('receiptPrint').outerHTML;
+  const win = window.open('', '', 'width=400,height=600');
+  win.document.write(`<html><head><style>body{font-family:'Courier New',monospace;padding:20px;color:#000}.receipt-divider{border:none;border-top:1px dashed #999;margin:10px 0}.receipt-row,.receipt-total{display:flex;justify-content:space-between;margin-bottom:4px}.receipt-total{font-weight:800;font-size:15px;padding-top:8px;border-top:2px solid #000}.receipt-header,.receipt-footer{text-align:center}</style></head><body>${content}<script>window.print();window.close();</scr`+'ipt></body></html>');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── Init ────────────────────────────────────────────────────
+setTimeout(() => { document.getElementById('preloader').classList.add('hidden'); }, 900);
+loadProducts();
+renderCart();
+</script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Expiry Center — StoreSync</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+/* Reveal animation */
+.reveal { opacity:0; transform:translateY(16px); transition:opacity .5s ease,transform .5s ease; }
+.revealed { opacity:1; transform:none; }
+
+/* Tab bar */
+.tab-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+.tab-btn {
+  padding:8px 18px; border-radius:99px; font-size:13px; font-weight:600;
+  border:1.5px solid var(--border); background:var(--bg-surface2);
+  color:var(--text-secondary); cursor:pointer; transition:all var(--transition);
+}
+.tab-btn.active { background:var(--indigo); border-color:var(--indigo); color:#fff; }
+.tab-btn .count-badge {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:18px; height:18px; border-radius:99px;
+  font-size:11px; font-weight:700; padding:0 5px;
+  margin-left:6px; background:rgba(255,255,255,0.25);
+}
+.tab-btn:not(.active) .count-badge { background:rgba(99,102,241,0.12); color:var(--indigo); }
+
+/* Expiry stats grid */
+.exp-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:16px; margin-bottom:24px; }
+
+/* Product row styles */
+.days-badge { padding:3px 9px; border-radius:99px; font-size:11px; font-weight:700; }
+.expired-row  { background:rgba(244,63,94,.04); }
+.critical-row { background:rgba(245,158,11,.04); }
+.warning-row  { background:rgba(249,115,22,.04); }
+
+/* Action buttons */
+.act-btn {
+  width:32px; height:32px; border-radius:9px; border:none; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:all var(--transition); background:var(--bg-surface2);
+  color:var(--text-secondary);
+}
+.act-btn:hover { transform:scale(1.1); }
+.act-btn svg { width:15px; height:15px; }
+.act-btn.del:hover   { background:#fee2e2; color:#991b1b; }
+.act-btn.mark:hover  { background:#d1fae5; color:#065f46; }
+
+/* Progress bar for days remaining */
+.days-bar-wrap { display:flex; align-items:center; gap:8px; min-width:120px; }
+.days-bar-bg { flex:1; height:6px; border-radius:99px; background:var(--bg-surface2); overflow:hidden; }
+.days-bar-fill { height:100%; border-radius:99px; transition:width .6s ease; }
+
+/* Empty state */
+.empty-state { text-align:center; padding:60px 20px; }
+.empty-state svg { width:80px; height:80px; color:var(--text-muted); margin-bottom:16px; }
+.empty-state h3 { font-size:18px; font-weight:700; color:var(--text-primary); margin-bottom:6px; }
+.empty-state p  { font-size:14px; color:var(--text-secondary); }
+
+/* Search / filter bar */
+.filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.filter-bar .form-control { background:var(--bg-surface); min-width:160px; }
+
+/* Modal confirm */
+.modal-icon-circle {
+  width:64px; height:64px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:28px; margin:0 auto 16px;
+}
+
+/* Countdown ring */
+.countdown-ring { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.ring-number { font-size:28px; font-weight:800; line-height:1; }
+.ring-label  { font-size:11px; color:var(--text-muted); font-weight:500; }
+
+/* Product img placeholder */
+.product-img-placeholder {
+  width:40px; height:40px; border-radius:10px;
+  background:var(--gradient-brand);
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; flex-shrink:0;
+}
+
+/* Row fade-in */
+@keyframes fadeRowIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+
+<!-- Preloader -->
+<div id="preloader">
+  <div class="ss-logo-loader">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+  </div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Loading Expiry Center…</div>
+</div>
+
+<!-- Navbar -->
+<div id="appNavbar"></div>
+<!-- Sidebar -->
+<nav id="sidebar"></nav>
+
+<!-- Main -->
+<main class="ss-main page-enter" id="mainContent">
+
+  <!-- Page Header -->
+  <div class="reveal" style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <a href="index.html" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back
+      </a>
+      <div>
+        <h1 class="section-title">⏰ Expiry Center</h1>
+        <p class="section-sub">Track and manage product expiry dates — act before it's too late</p>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary btn-sm" onclick="exportExpiry()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Export CSV
+      </button>
+      <button class="btn btn-primary" onclick="loadProducts()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="exp-stats reveal">
+    <div class="stat-card" style="--stat-glow:rgba(244,63,94,.08)">
+      <div class="stat-label">Expired</div>
+      <div class="stat-value" style="color:var(--rose)" id="statExpired">—</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Remove immediately</div>
+    </div>
+    <div class="stat-card" style="--stat-glow:rgba(245,158,11,.08)">
+      <div class="stat-label">Critical (≤ 7 days)</div>
+      <div class="stat-value" style="color:var(--amber)" id="statCritical">—</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Urgent attention</div>
+    </div>
+    <div class="stat-card" style="--stat-glow:rgba(249,115,22,.08)">
+      <div class="stat-label">Warning (≤ 30 days)</div>
+      <div class="stat-value" style="color:#f97316" id="statWarning">—</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Monitor closely</div>
+    </div>
+    <div class="stat-card" style="--stat-glow:rgba(16,185,129,.08)">
+      <div class="stat-label">Good (> 30 days)</div>
+      <div class="stat-value" style="color:var(--emerald)" id="statGood">—</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">No action needed</div>
+    </div>
+    <div class="stat-card" style="--stat-glow:rgba(99,102,241,.08)">
+      <div class="stat-label">No Expiry Set</div>
+      <div class="stat-value" id="statNone">—</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Consider adding dates</div>
+    </div>
+  </div>
+
+  <!-- Filter + Search -->
+  <div class="card reveal" style="margin-bottom:20px">
+    <div class="card-body" style="padding:16px 20px">
+      <div class="filter-bar">
+        <div style="position:relative;flex:1;min-width:200px">
+          <svg style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--text-muted)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input id="searchInput" class="form-control" style="padding-left:38px" placeholder="Search products or categories…" oninput="applyFilters()">
+        </div>
+        <select id="catFilter" class="form-control" onchange="applyFilters()" style="min-width:140px">
+          <option value="">All Categories</option>
+        </select>
+        <select id="sortSelect" class="form-control" onchange="applyFilters()" style="min-width:160px">
+          <option value="days_asc">Sort: Expiring Soonest</option>
+          <option value="days_desc">Sort: Farthest Expiry</option>
+          <option value="name">Sort: Name A–Z</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar reveal">
+    <button class="tab-btn active" data-tab="all"      onclick="switchTab('all')">All <span class="count-badge" id="tabAll">0</span></button>
+    <button class="tab-btn"        data-tab="expired"  onclick="switchTab('expired')">🔴 Expired <span class="count-badge" id="tabExpired">0</span></button>
+    <button class="tab-btn"        data-tab="critical" onclick="switchTab('critical')">⚠️ Critical <span class="count-badge" id="tabCritical">0</span></button>
+    <button class="tab-btn"        data-tab="warning"  onclick="switchTab('warning')">🟡 Warning <span class="count-badge" id="tabWarning">0</span></button>
+    <button class="tab-btn"        data-tab="good"     onclick="switchTab('good')">✅ Good <span class="count-badge" id="tabGood">0</span></button>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card reveal">
+    <div class="table-wrap">
+      <table id="expiryTable">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Expiry Date</th>
+            <th>Days Remaining</th>
+            <th>Stock</th>
+            <th>Status</th>
+            <th style="text-align:center">Action</th>
+          </tr>
+        </thead>
+        <tbody id="expiryBody">
+          <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Delete Confirmation Modal ─────────────────────────── -->
+<div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeModal('deleteModal')">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h3 class="modal-title">Remove Expired Product</h3>
+      <button class="modal-close" onclick="closeModal('deleteModal')">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:24px">
+      <div class="modal-icon-circle" style="background:#fee2e2">🗑️</div>
+      <p style="font-size:15px;color:var(--text-secondary)">
+        Delete <strong id="deleteProductName" style="color:var(--text-primary)"></strong> from inventory?
+      </p>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:8px">This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="btn" style="background:var(--rose);color:#fff" onclick="confirmDelete()">Delete Product</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Alert Drawer ───────────────────────────────────────── -->
+<div class="alert-drawer" id="alertDrawer">
+  <div class="alert-drawer-header">
+    <span style="font-weight:700">Alerts</span>
+    <button onclick="toggleAlertDrawer()" style="background:none;border:none;cursor:pointer;color:var(--text-muted)">✕</button>
+  </div>
+  <div id="alertList"></div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+// ── Page ID for active nav ──────────────────────────────────
+const activePage = 'expiry';
+
+// ── State ───────────────────────────────────────────────────
+let allProducts   = [];
+let currentTab    = 'all';
+let deleteId      = null;
+
+// ── Fetch all products from API ─────────────────────────────
+async function loadProducts() {
+  try {
+    const res  = await fetch('/api/products');
+    const data = await res.json();
+
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // Normalize & enrich
+    allProducts = data
+      .filter(p => p.expiry_date)   // only products with expiry dates set
+      .map(p => {
+        const exp     = new Date(p.expiry_date);
+        const daysLeft = Math.ceil((exp - today) / 86400000);
+        let status;
+        if (daysLeft < 0)       status = 'expired';
+        else if (daysLeft <= 7)  status = 'critical';
+        else if (daysLeft <= 30) status = 'warning';
+        else                     status = 'good';
+        return {
+          id:       p.id,
+          name:     p.product_name || p.name || 'Unknown',
+          category: p.category     || '—',
+          expDate:  p.expiry_date,
+          daysLeft,
+          status,
+          quantity: p.quantity || 0
+        };
+      });
+
+    // Products with no expiry (for stat card)
+    const noExpiryCount = data.filter(p => !p.expiry_date).length;
+
+    updateStats(noExpiryCount);
+    populateCategoryFilter();
+    applyFilters();
+    updateNavBadge();
+
+  } catch(err) {
+    console.warn('Expiry load error:', err);
+    document.getElementById('expiryBody').innerHTML =
+      '<tr><td colspan="7"><div class="empty-state"><p>Could not load products. Check server connection.</p></div></td></tr>';
+  }
+}
+
+// ── Stats ────────────────────────────────────────────────────
+function updateStats(noExpiryCount) {
+  const expired  = allProducts.filter(p => p.status === 'expired').length;
+  const critical = allProducts.filter(p => p.status === 'critical').length;
+  const warning  = allProducts.filter(p => p.status === 'warning').length;
+  const good     = allProducts.filter(p => p.status === 'good').length;
+
+  document.getElementById('statExpired').textContent  = expired;
+  document.getElementById('statCritical').textContent = critical;
+  document.getElementById('statWarning').textContent  = warning;
+  document.getElementById('statGood').textContent     = good;
+  document.getElementById('statNone').textContent     = noExpiryCount;
+
+  // Tab badges
+  document.getElementById('tabAll').textContent      = allProducts.length;
+  document.getElementById('tabExpired').textContent  = expired;
+  document.getElementById('tabCritical').textContent = critical;
+  document.getElementById('tabWarning').textContent  = warning;
+  document.getElementById('tabGood').textContent     = good;
+}
+
+// ── Category filter dropdown ─────────────────────────────────
+function populateCategoryFilter() {
+  const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean).sort())];
+  const sel  = document.getElementById('catFilter');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">All Categories</option>' +
+    cats.map(c => `<option value="${c}" ${prev===c?'selected':''}>${c}</option>`).join('');
+}
+
+// ── Tab switch ───────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  applyFilters();
+}
+
+// ── Apply filters + sort + render ────────────────────────────
+function applyFilters() {
+  const search  = document.getElementById('searchInput').value.toLowerCase().trim();
+  const cat     = document.getElementById('catFilter').value;
+  const sort    = document.getElementById('sortSelect').value;
+
+  let list = allProducts;
+
+  // Tab filter
+  if (currentTab !== 'all') {
+    list = list.filter(p => p.status === currentTab);
+  }
+
+  // Search
+  if (search) {
+    list = list.filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      p.category.toLowerCase().includes(search)
+    );
+  }
+
+  // Category
+  if (cat) {
+    list = list.filter(p => p.category === cat);
+  }
+
+  // Sort
+  if (sort === 'days_asc')  list = [...list].sort((a,b) => a.daysLeft - b.daysLeft);
+  if (sort === 'days_desc') list = [...list].sort((a,b) => b.daysLeft - a.daysLeft);
+  if (sort === 'name')      list = [...list].sort((a,b) => a.name.localeCompare(b.name));
+
+  renderTable(list);
+}
+
+// ── Render table ─────────────────────────────────────────────
+function renderTable(list) {
+  const tbody = document.getElementById('expiryBody');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <h3>No products found</h3>
+      <p>${currentTab==='all' ? 'No products with expiry dates set. Add expiry dates via Inventory.' : 'No products in this category.'}</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map((p, i) => {
+    // Status badge
+    let statusBadge, rowClass='', barColor='', barWidth='0%';
+    switch(p.status) {
+      case 'expired':
+        statusBadge = '<span class="badge badge-red">Expired</span>';
+        rowClass    = 'expired-row';
+        barColor    = 'var(--rose)';
+        barWidth    = '100%';
+        break;
+      case 'critical':
+        statusBadge = '<span class="badge badge-orange">Critical</span>';
+        rowClass    = 'critical-row';
+        barColor    = 'var(--amber)';
+        barWidth    = `${Math.min(100, Math.max(10, ((7-p.daysLeft)/7)*100))}%`;
+        break;
+      case 'warning':
+        statusBadge = '<span class="badge badge-yellow">Warning</span>';
+        rowClass    = 'warning-row';
+        barColor    = '#f97316';
+        barWidth    = `${Math.min(100, Math.max(5, ((30-p.daysLeft)/30)*100))}%`;
+        break;
+      default:
+        statusBadge = '<span class="badge badge-green">Good</span>';
+        barColor    = 'var(--emerald)';
+        barWidth    = `${Math.min(30, Math.max(2, (30/p.daysLeft)*10))}%`;
+    }
+
+    // Days display
+    let daysDisplay;
+    if (p.daysLeft < 0) {
+      daysDisplay = `<span style="color:var(--rose);font-weight:700">${Math.abs(p.daysLeft)} days ago</span>`;
+    } else if (p.daysLeft === 0) {
+      daysDisplay = `<span style="color:var(--rose);font-weight:700">Today!</span>`;
+    } else if (p.daysLeft === 1) {
+      daysDisplay = `<span style="color:var(--amber);font-weight:700">Tomorrow</span>`;
+    } else {
+      daysDisplay = `<span style="font-weight:600;color:${
+        p.daysLeft <= 7  ? 'var(--amber)' :
+        p.daysLeft <= 30 ? '#f97316'      : 'var(--emerald)'
+      }">${p.daysLeft} days</span>`;
+    }
+
+    // Stock color
+    const stockColor = p.quantity === 0 ? 'var(--rose)' : p.quantity < 5 ? 'var(--amber)' : 'var(--text-primary)';
+
+    return `<tr class="${rowClass}" style="animation:fadeRowIn .3s ease ${i*40}ms both">
+      <td>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="product-img-placeholder">${p.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <div style="font-weight:600;font-size:14px">${escHtml(p.name)}</div>
+            <div style="font-size:12px;color:var(--text-muted)">ID: ${p.id}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-blue">${escHtml(p.category)}</span></td>
+      <td style="font-weight:600;font-size:13px">${formatDate(p.expDate)}</td>
+      <td>
+        <div class="days-bar-wrap">
+          <div style="min-width:80px">${daysDisplay}</div>
+          <div class="days-bar-bg">
+            <div class="days-bar-fill" style="width:${barWidth};background:${barColor}"></div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <span style="font-weight:700;font-size:15px;color:${stockColor}">${p.quantity}</span>
+        <span style="font-size:11px;color:var(--text-muted)"> units</span>
+      </td>
+      <td>${statusBadge}</td>
+      <td>
+        <div style="display:flex;gap:6px;justify-content:center">
+          <button class="act-btn del" title="Remove product" onclick="openDeleteModal(${p.id},'${escAttr(p.name)}')">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Update sidebar badge ─────────────────────────────────────
+function updateNavBadge() {
+  const urgentCount = allProducts.filter(p => p.status === 'expired' || p.status === 'critical').length;
+  const badge = document.getElementById('expiryNavBadge');
+  if (badge) {
+    badge.textContent = urgentCount || '!';
+    badge.style.display = urgentCount ? '' : 'none';
+  }
+}
+
+// ── Delete modal ─────────────────────────────────────────────
+function openDeleteModal(id, name) {
+  deleteId = id;
+  document.getElementById('deleteProductName').textContent = name;
+  openModal('deleteModal');
+}
+
+async function confirmDelete() {
+  if (!deleteId) return;
+  try {
+    await fetch('/api/products/' + deleteId, { method: 'DELETE' });
+    closeModal('deleteModal');
+    showToast('Deleted', 'Product removed from inventory.', 'success');
+    deleteId = null;
+    loadProducts();
+  } catch(err) {
+    showToast('Error', 'Could not delete product.', 'error');
+  }
+}
+
+// ── Export CSV ────────────────────────────────────────────────
+function exportExpiry() {
+  let csv = 'Product Name,Category,Expiry Date,Days Remaining,Status,Stock\n';
+  allProducts.forEach(p => {
+    const label = p.status.charAt(0).toUpperCase() + p.status.slice(1);
+    csv += `"${p.name}","${p.category}","${p.expDate}",${p.daysLeft},"${label}",${p.quantity}\n`;
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'storesync_expiry_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('Exported', 'Expiry report CSV downloaded.', 'success');
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(str) {
+  return String(str).replace(/'/g,"\\'");
+}
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'numeric' });
+  } catch { return dateStr; }
+}
+
+// ── Reveal animations ─────────────────────────────────────────
+function initReveal() {
+  const els = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); obs.unobserve(e.target); } });
+  }, { threshold: 0.08 });
+  els.forEach(el => obs.observe(el));
+}
+
+// ── Init ──────────────────────────────────────────────────────
+setTimeout(() => { document.getElementById('preloader').classList.add('hidden'); }, 1000);
+loadProducts();
+loadAlerts();
+initReveal();
+startClock();
+initTheme();
+</script>
+</body>
+</html>

@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Scanner — StoreSync</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2ff;
+    --surface: rgba(255,255,255,0.88);
+    --surface2: rgba(255,255,255,0.6);
+    --border: rgba(139,92,246,0.12);
+    --text: #1e1b4b;
+    --text3: #64748b;
+    --card-shadow: 0 8px 32px rgba(139,92,246,0.10), 0 1.5px 4px rgba(0,0,0,0.04);
+    --nav-bg: rgba(255,255,255,0.84);
+    --accent: #8b5cf6;
+    --accent2: #ec4899;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --scanner-grad: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+    --transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f1a;
+    --surface: rgba(30,27,75,0.88);
+    --surface2: rgba(30,27,75,0.5);
+    --border: rgba(139,92,246,0.18);
+    --text: #e0e0ff;
+    --text3: #94a3b8;
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1.5px 4px rgba(0,0,0,0.3);
+    --nav-bg: rgba(15,15,26,0.94);
+    --accent: #a78bfa;
+    --accent2: #f472b6;
+    --green: #34d399;
+    --orange: #fbbf24;
+    --red: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.4s ease, color 0.4s ease;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% -5%, rgba(139,92,246,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 60% at 90% 110%, rgba(236,72,153,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(99,102,241,0.06) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  [data-theme="dark"] body::before {
+    background:
+      radial-gradient(ellipse 80% 60% at 10% -5%, rgba(139,92,246,0.20) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 60% at 90% 110%, rgba(236,72,153,0.16) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(99,102,241,0.10) 0%, transparent 60%);
+  }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--nav-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    transition: var(--transition);
+  }
+  .nav-inner {
+    max-width: 1400px; margin: 0 auto;
+    padding: 0 1.5rem; height: 68px;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav-logo {
+    width: 38px; height: 38px;
+    background: var(--scanner-grad);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; color: white; font-weight: 800;
+    box-shadow: 0 4px 14px rgba(139,92,246,0.35);
+  }
+  .nav-title {
+    font-size: 1.35rem; font-weight: 800;
+    background: var(--scanner-grad);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .nav-links { display: flex; align-items: center; gap: 0.25rem; }
+  .nav-link {
+    padding: 0.45rem 0.9rem; border-radius: 10px;
+    font-size: 0.88rem; font-weight: 500; color: var(--text3);
+    text-decoration: none; transition: var(--transition);
+  }
+  .nav-link:hover, .nav-link.active { background: rgba(139,92,246,0.10); color: var(--accent); }
+  .nav-link.active { font-weight: 600; }
+  .nav-actions { display: flex; align-items: center; gap: 0.6rem; }
+  .icon-btn {
+    width: 38px; height: 38px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text3); font-size: 1rem;
+    transition: var(--transition); position: relative; text-decoration: none;
+  }
+  .icon-btn:hover {
+    background: rgba(139,92,246,0.12); color: var(--accent);
+    border-color: var(--accent); transform: translateY(-1px);
+  }
+  .badge {
+    position: absolute; top: -5px; right: -5px;
+    background: var(--red); color: white; font-size: 0.6rem;
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; border: 2px solid var(--bg);
+  }
+  .theme-toggle {
+    width: 52px; height: 28px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 14px;
+    position: relative; cursor: pointer; transition: var(--transition);
+  }
+  .theme-toggle::after {
+    content: ''; position: absolute;
+    width: 22px; height: 22px;
+    background: var(--scanner-grad);
+    border-radius: 50%; top: 2px; left: 2px;
+    transition: var(--transition);
+    box-shadow: 0 2px 8px rgba(139,92,246,0.4);
+  }
+  [data-theme="dark"] .theme-toggle::after { left: 26px; }
+
+  main {
+    max-width: 960px; margin: 0 auto;
+    padding: 88px 1.5rem 3rem;
+    position: relative; z-index: 1;
+  }
+
+  /* PAGE HEADER */
+  .page-header {
+    text-align: center; margin-bottom: 2rem;
+    animation: fadeSlideUp 0.5s ease forwards;
+  }
+  .page-header h1 {
+    font-size: 2.2rem; font-weight: 900; letter-spacing: -0.5px;
+    background: var(--scanner-grad);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+  .page-header p { color: var(--text3); font-size: 1rem; margin-bottom: 1.5rem; }
+  .header-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+  /* CARD */
+  .card {
+    background: var(--surface);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: var(--card-shadow); transition: var(--transition);
+  }
+
+  /* SCAN AREA */
+  .scan-area {
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    animation: fadeSlideUp 0.5s ease 0.1s both;
+  }
+
+  /* SCANNER BUTTON */
+  .btn-scan {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    padding: 1rem 2rem;
+    background: var(--scanner-grad);
+    color: white; border: none; border-radius: 16px;
+    font-size: 1rem; font-weight: 700; cursor: pointer;
+    transition: var(--transition);
+    font-family: 'Outfit', sans-serif;
+    box-shadow: 0 8px 24px rgba(139,92,246,0.35);
+  }
+  .btn-scan:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(139,92,246,0.45); }
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    padding: 1rem 1.5rem;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 16px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    transition: var(--transition); text-decoration: none;
+    font-family: 'Outfit', sans-serif;
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+  /* VIDEO SCANNER */
+  #scannerSection { display: none; margin-bottom: 1.5rem; }
+  #scannerSection.active { display: block; animation: zoomIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes zoomIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+
+  .scanner-wrap {
+    padding: 1.5rem;
+    position: relative;
+  }
+  .video-container {
+    position: relative; border-radius: 16px; overflow: hidden;
+    max-width: 600px; margin: 0 auto;
+    box-shadow: 0 20px 60px rgba(139,92,246,0.2);
+  }
+  #video { width: 100%; height: auto; display: block; border-radius: 16px; background: #000; }
+  .scan-frame {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%; height: 55%;
+    border: 2.5px solid rgba(139,92,246,0.85);
+    border-radius: 16px;
+    pointer-events: none;
+  }
+  .scan-frame::before, .scan-frame::after {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-color: #8b5cf6; border-style: solid;
+  }
+  .scan-frame::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 6px 0 0 0; }
+  .scan-frame::after { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
+  .scan-line {
+    position: absolute;
+    top: 0; left: 4px; right: 4px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #8b5cf6, transparent);
+    animation: scanMove 2.5s ease-in-out infinite;
+  }
+  @keyframes scanMove {
+    0% { top: 0; opacity: 1; }
+    90% { top: calc(100% - 2px); opacity: 1; }
+    100% { top: 0; opacity: 0; }
+  }
+  .scan-corners {
+    position: absolute; top: -2px; right: -2px; bottom: -2px; left: -2px;
+    pointer-events: none;
+  }
+  .corner-br {
+    position: absolute; bottom: -2px; left: -2px;
+    width: 22px; height: 22px;
+    border-left: 3px solid #8b5cf6;
+    border-bottom: 3px solid #8b5cf6;
+    border-radius: 0 0 0 6px;
+  }
+  .corner-tl {
+    position: absolute; top: -2px; right: -2px;
+    width: 22px; height: 22px;
+    border-right: 3px solid #8b5cf6;
+    border-top: 3px solid #8b5cf6;
+    border-radius: 0 6px 0 0;
+  }
+
+  /* SCAN STATUS */
+  .scan-status {
+    margin-top: 1.25rem; padding: 1.25rem;
+    border-radius: 14px; text-align: center;
+    font-weight: 700; font-size: 1rem;
+    display: none;
+  }
+  .scan-status.success {
+    background: rgba(16,185,129,0.12);
+    border: 1px solid rgba(16,185,129,0.25);
+    color: var(--green);
+    animation: slideUpFade 0.4s ease;
+  }
+  .scan-status.error {
+    background: rgba(239,68,68,0.10);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: var(--red);
+    animation: slideUpFade 0.4s ease;
+  }
+  @keyframes slideUpFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* HISTORY */
+  .history-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    animation: fadeSlideUp 0.5s ease 0.2s both;
+  }
+  .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+  .history-title { font-size: 1rem; font-weight: 700; }
+  .history-count {
+    background: rgba(139,92,246,0.12); color: var(--accent);
+    font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+  }
+  .history-item {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.9rem 0; border-bottom: 1px solid var(--border);
+    transition: var(--transition);
+    animation: fadeSlideUp 0.3s ease;
+  }
+  .history-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .history-item:hover { background: rgba(139,92,246,0.04); border-radius: 10px; padding-left: 0.5rem; }
+  .history-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    background: var(--scanner-grad);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 0.75rem; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .history-info { flex: 1; min-width: 0; }
+  .history-name { font-size: 0.9rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-meta { font-size: 0.77rem; color: var(--text3); }
+  .history-badge {
+    background: rgba(16,185,129,0.12); color: var(--green);
+    font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem;
+    border-radius: 8px; white-space: nowrap;
+  }
+  .history-time { font-size: 0.7rem; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+  /* INSTRUCTIONS */
+  .instructions-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;
+    animation: fadeSlideUp 0.5s ease 0.3s both;
+  }
+  .instruction-card {
+    padding: 1.5rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.15);
+    color: white; position: relative; overflow: hidden;
+  }
+  .instruction-card.purple { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+  .instruction-card.green { background: linear-gradient(135deg, #10b981, #06b6d4); }
+  .instruction-card::before {
+    content: ''; position: absolute;
+    top: -30%; right: -10%; width: 200px; height: 200px;
+    background: rgba(255,255,255,0.08); border-radius: 50%;
+    pointer-events: none;
+  }
+  .instruction-card h3 { font-size: 1rem; font-weight: 800; margin-bottom: 0.85rem; position: relative; z-index: 1; }
+  .instruction-card ol, .instruction-card p { position: relative; z-index: 1; }
+  .instruction-card li { font-size: 0.85rem; margin-bottom: 0.35rem; opacity: 0.92; }
+  .code-badge {
+    background: rgba(0,0,0,0.2); padding: 0.5rem 0.75rem;
+    border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem; margin-top: 0.75rem;
+    display: inline-block; position: relative; z-index: 1;
+  }
+
+  /* ALERT DROPDOWN */
+  .alert-dropdown {
+    position: absolute; top: calc(100% + 12px); right: 0;
+    width: 360px; background: var(--surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    overflow: hidden; z-index: 200;
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: var(--transition);
+  }
+  .alert-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
+  .alert-header { padding: 1rem 1.25rem; font-weight: 700; font-size: 0.9rem; border-bottom: 1px solid var(--border); }
+  .alert-item { padding: 0.85rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.83rem; }
+  .alert-item:last-child { border-bottom: none; }
+
+  /* CART COUNTER FLOAT */
+  .cart-float {
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: var(--scanner-grad);
+    color: white; border: none; border-radius: 16px;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.88rem; font-weight: 700;
+    cursor: pointer; font-family: 'Outfit', sans-serif;
+    box-shadow: 0 8px 24px rgba(139,92,246,0.4);
+    transition: var(--transition);
+    display: flex; align-items: center; gap: 0.5rem;
+    text-decoration: none; z-index: 50;
+    opacity: 0; visibility: hidden;
+  }
+  .cart-float.show { opacity: 1; visibility: visible; animation: floatIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .cart-float:hover { transform: translateY(-3px); box-shadow: 0 14px 36px rgba(139,92,246,0.5); }
+  @keyframes floatIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .cart-badge {
+    background: white; color: var(--accent);
+    font-size: 0.72rem; font-weight: 800;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .instructions-grid { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand">
+      <div class="nav-logo">📷</div>
+      <span class="nav-title">StoreSync</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Dashboard</a>
+      <a id="inventoryNav" href="inventory.html" class="nav-link">Inventory</a>
+      <a href="billing.html" class="nav-link">Billing</a>
+      <a href="scanning.html" class="nav-link active">Scanner</a>
+      <a id="posNav" href="pos.html" class="nav-link">Analytics</a>
+    </div>
+    <div class="nav-actions">
+      <span style="font-size:0.85rem;">☀️</span>
+      <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></div>
+      <span style="font-size:0.85rem;">🌙</span>
+
+      <div style="position:relative;">
+        <div class="icon-btn" onclick="toggleAlerts()" title="Notifications">
+          🔔 <div class="badge" id="alertCount">0</div>
+        </div>
+        <div class="alert-dropdown" id="alertDropdown">
+          <div class="alert-header">Notifications</div>
+          <div id="alertList"><div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.85rem;">No alerts</div></div>
+        </div>
+      </div>
+
+      <a href="billing.html" class="btn-outline" style="padding:0.5rem 0.85rem;font-size:0.82rem;">🛒 View Cart</a>
+      <a id="logoutNav" href="#" onclick="logout()" class="icon-btn" title="Logout" style="color:var(--red);">⏻</a>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <h1>📷 QR Scanner</h1>
+    <p>Point your camera at any product QR code to instantly add items to cart</p>
+    <div class="header-actions">
+      <button id="startScanBtn" class="btn-scan" onclick="startScanning()">
+        🎥 Start Scanning
+      </button>
+      <a href="billing.html" class="btn-outline">🧾 Go to Billing</a>
+    </div>
+  </div>
+
+  <!-- SCANNER SECTION -->
+  <div class="card scanner-wrap" id="scannerSection" style="margin-bottom:1.5rem;">
+    <div class="video-container">
+      <video id="video" autoplay muted playsinline></video>
+      <div class="scan-frame">
+        <div class="scan-line"></div>
+        <div class="scan-corners">
+          <div class="corner-br"></div>
+          <div class="corner-tl"></div>
+        </div>
+      </div>
+    </div>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div id="scanStatus" class="scan-status">
+      <div id="scanResult"></div>
+      <button onclick="resumeScanning()" style="
+        margin-top:0.75rem;
+        background:var(--scanner-grad); color:white;
+        border:none; border-radius:10px; padding:0.5rem 1.25rem;
+        font-weight:700; cursor:pointer; font-family:'Outfit',sans-serif;
+        font-size:0.85rem;
+      ">▶ Continue Scanning</button>
+    </div>
+
+    <div style="display:flex;justify-content:center;gap:0.75rem;margin-top:1.25rem;flex-wrap:wrap;">
+      <button onclick="stopScanning()" class="btn-outline" style="border-radius:12px;">⏹ Stop Camera</button>
+      <a href="billing.html" class="btn-outline" style="border-radius:12px;">🛒 View Cart (<span id="cartQty">0</span>)</a>
+    </div>
+  </div>
+
+  <!-- SCAN HISTORY -->
+  <div class="card history-card">
+    <div class="history-header">
+      <span class="history-title">🕐 Recent Scans</span>
+      <span class="history-count" id="historyCount">0 items</span>
+    </div>
+    <div id="scanHistory">
+      <div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.88rem;">
+        <div style="font-size:2.5rem;margin-bottom:0.75rem;opacity:0.4;">📷</div>
+        Start scanning to see history here...
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCTIONS -->
+  <div class="instructions-grid">
+    <div class="instruction-card purple">
+      <h3>📱 How to Scan</h3>
+      <ol style="list-style:none;padding:0;">
+        <li>1. Tap <strong>"Start Scanning"</strong></li>
+        <li>2. Allow camera access</li>
+        <li>3. Point at product QR code</li>
+        <li>4. Auto-adds to cart instantly!</li>
+        <li>5. Go to billing to checkout</li>
+      </ol>
+    </div>
+    <div class="instruction-card green">
+      <h3>✅ QR Format</h3>
+      <p style="font-size:0.85rem;opacity:0.92;margin-bottom:0.75rem;">
+        QR code should contain the product ID from your inventory.
+      </p>
+      <div class="code-badge">Product ID: 1 → Amul Butter 500g</div>
+      <div class="code-badge" style="margin-top:0.5rem;">Product ID: 5 → Parle-G Biscuits</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- CART FLOAT BUTTON -->
+<a href="billing.html" class="cart-float" id="cartFloat">
+  🛒 View Cart <div class="cart-badge" id="cartFloatQty">0</div>
+</a>
+
+<script>
+// ── THEME ──────────────────────────────────────────────────────
+const html = document.documentElement;
+html.setAttribute('data-theme', localStorage.getItem('ss_theme') || 'light');
+function toggleTheme() {
+  const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('ss_theme', next);
+}
+
+// ── AUTH ───────────────────────────────────────────────────────
+if (!localStorage.getItem('role')) { alert('Please login'); window.location = 'login.html'; }
+const role = localStorage.getItem('role');
+if (role === 'worker') {
+  document.getElementById('inventoryNav')?.remove();
+  document.getElementById('posNav')?.remove();
+}
+function logout() { localStorage.clear(); window.location = 'login.html'; }
+
+// ── ALERTS ─────────────────────────────────────────────────────
+document.addEventListener('click', (e) => {
+  const dd = document.getElementById('alertDropdown');
+  if (!e.target.closest('[onclick="toggleAlerts()"]') && !dd?.contains(e.target)) {
+    dd?.classList.remove('open');
+  }
+});
+function toggleAlerts() { document.getElementById('alertDropdown').classList.toggle('open'); }
+
+async function loadAlerts() {
+  try {
+    const res = await fetch('/api/alerts');
+    const alerts = await res.json();
+    document.getElementById('alertCount').textContent = alerts.length;
+    const list = document.getElementById('alertList');
+    if (!alerts.length) {
+      list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.85rem;">All clear ✓</div>';
+      return;
+    }
+    list.innerHTML = alerts.map(a => {
+      const icons = { low: '⚠️', out: '⛔', exp: '📅' };
+      return `<div class="alert-item"><span>${icons[a.type] || '🔔'}</span><div><div style="font-weight:600;">${a.name}</div><div style="color:var(--text3);font-size:0.77rem;">${a.type}</div></div></div>`;
+    }).join('');
+  } catch {}
+}
+
+// ── SCANNER LOGIC (original preserved) ─────────────────────────
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
+let stream = null;
+let scanHistory = JSON.parse(localStorage.getItem('scanHistory')) || [];
+let isScanning = false;
+let animFrameId = null;
+
+function updateCartDisplay() {
+  const cart = JSON.parse(localStorage.getItem('cart')) || [];
+  const qty = cart.reduce((s, i) => s + (i.quantity || i.qty || 1), 0);
+  document.getElementById('cartQty').textContent = qty;
+  document.getElementById('cartFloatQty').textContent = qty;
+  const cartFloat = document.getElementById('cartFloat');
+  if (qty > 0) cartFloat.classList.add('show');
+  else cartFloat.classList.remove('show');
+}
+
+async function startScanning() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    await video.play();
+
+    const scanBtn = document.getElementById('startScanBtn');
+    scanBtn.style.display = 'none';
+
+    const sec = document.getElementById('scannerSection');
+    sec.classList.add('active');
+    sec.style.display = 'block';
+
+    isScanning = true;
+    requestAnimationFrame(scanLoop);
+  } catch (err) {
+    showToast('❌ Camera access denied. Please allow camera permission.', 'error');
+    console.error(err);
+  }
+}
+
+function stopScanning() {
+  isScanning = false;
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  document.getElementById('scannerSection').style.display = 'none';
+  document.getElementById('scannerSection').classList.remove('active');
+  document.getElementById('startScanBtn').style.display = 'inline-flex';
+  document.getElementById('scanStatus').style.display = 'none';
+}
+
+function scanLoop() {
+  if (!isScanning) return;
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+    if (code) {
+      isScanning = false;
+      handleScan(code.data);
+      return;
+    }
+  }
+  animFrameId = requestAnimationFrame(scanLoop);
+}
+
+async function handleScan(data) {
+  const productId = parseInt(data);
+  try {
+    const res = await fetch('/api/inventory');
+    const products = await res.json();
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      addToCart(product);
+      showScanResult(`✅ Added: ${product.name}`, 'success');
+      addToHistory(product);
+    } else {
+      showScanResult('❌ Product not found in inventory!', 'error');
+    }
+  } catch {
+    showScanResult('⚠️ Could not connect to server', 'error');
+  }
+}
+
+function addToCart(product) {
+  let cart = JSON.parse(localStorage.getItem('cart')) || [];
+  const existing = cart.find(i => i.id === product.id);
+  if (existing) {
+    if (existing.qty >= (product.stock || product.quantity || 99)) {
+      showScanResult('⚠️ Stock limit reached!', 'error');
+      return;
+    }
+    existing.qty++;
+  } else {
+    cart.push({ ...product, qty: 1 });
+  }
+  localStorage.setItem('cart', JSON.stringify(cart));
+  updateCartDisplay();
+}
+
+function addToHistory(product) {
+  const scan = { id: Date.now(), product, time: new Date().toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) };
+  scanHistory.unshift(scan);
+  scanHistory = scanHistory.slice(0, 15);
+  localStorage.setItem('scanHistory', JSON.stringify(scanHistory));
+  renderHistory();
+}
+
+function showScanResult(message, type) {
+  const status = document.getElementById('scanStatus');
+  const result = document.getElementById('scanResult');
+  result.textContent = message;
+  status.className = `scan-status ${type}`;
+  status.style.display = 'block';
+}
+
+function resumeScanning() {
+  document.getElementById('scanStatus').style.display = 'none';
+  isScanning = true;
+  requestAnimationFrame(scanLoop);
+}
+
+function renderHistory() {
+  const container = document.getElementById('scanHistory');
+  document.getElementById('historyCount').textContent = scanHistory.length + ' item' + (scanHistory.length !== 1 ? 's' : '');
+  if (scanHistory.length === 0) {
+    container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text3);font-size:0.88rem;">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;opacity:0.4;">📷</div>
+      Start scanning to see history here...
+    </div>`;
+    return;
+  }
+  container.innerHTML = scanHistory.map(scan => `
+    <div class="history-item">
+      <div class="history-icon">QR</div>
+      <div class="history-info">
+        <div class="history-name">${scan.product.name}</div>
+        <div class="history-meta">${scan.product.category || 'Product'} · ₹${(scan.product.price || scan.product.sell_price || 0).toFixed(2)}</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+        <span class="history-badge">+1 cart</span>
+        <span class="history-time">${scan.time}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function showToast(message, type = 'success') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position:fixed;top:88px;right:1.5rem;z-index:9999;
+    padding:0.9rem 1.25rem;border-radius:14px;
+    background:var(--surface);border:1px solid var(--border);
+    box-shadow:var(--card-shadow);
+    font-weight:600;font-size:0.88rem;font-family:'Outfit',sans-serif;
+    color:var(--text);min-width:280px;
+    animation:slideInToast 0.4s ease;
+    border-left:4px solid ${type === 'error' ? 'var(--red)' : 'var(--green)'};
+  `;
+  toast.innerHTML = message;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(120%)'; setTimeout(() => toast.remove(), 400); }, 3000);
+}
+
+// ── INIT ───────────────────────────────────────────────────────
+renderHistory();
+updateCartDisplay();
+loadAlerts();
+setInterval(loadAlerts, 30000);
+
+window.addEventListener('beforeunload', () => {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+});
+
+const style = document.createElement('style');
+style.textContent = `@keyframes slideInToast { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

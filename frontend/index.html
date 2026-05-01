@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StoreSync — Smart Retail Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2ff;
+    --bg2: #e8eaf8;
+    --surface: rgba(255,255,255,0.85);
+    --surface2: rgba(255,255,255,0.6);
+    --border: rgba(99,102,241,0.12);
+    --text: #1e1b4b;
+    --text2: #6366f1;
+    --text3: #64748b;
+    --card-shadow: 0 8px 32px rgba(99,102,241,0.10), 0 1.5px 4px rgba(0,0,0,0.04);
+    --nav-bg: rgba(255,255,255,0.82);
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --green: #10b981;
+    --orange: #f59e0b;
+    --red: #ef4444;
+    --transition: all 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f1a;
+    --bg2: #13131f;
+    --surface: rgba(30,27,75,0.85);
+    --surface2: rgba(30,27,75,0.5);
+    --border: rgba(99,102,241,0.18);
+    --text: #e0e0ff;
+    --text2: #a5b4fc;
+    --text3: #94a3b8;
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1.5px 4px rgba(0,0,0,0.3);
+    --nav-bg: rgba(15,15,26,0.92);
+    --accent: #818cf8;
+    --accent2: #a78bfa;
+    --accent3: #22d3ee;
+    --green: #34d399;
+    --orange: #fbbf24;
+    --red: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background 0.4s ease, color 0.4s ease;
+    min-height: 100vh;
+  }
+
+  /* Mesh background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 60% at 20% -10%, rgba(99,102,241,0.13) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 110%, rgba(139,92,246,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(6,182,212,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  [data-theme="dark"] body::before {
+    background: 
+      radial-gradient(ellipse 80% 60% at 20% -10%, rgba(99,102,241,0.20) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 110%, rgba(139,92,246,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 50% 50%, rgba(6,182,212,0.08) 0%, transparent 60%);
+  }
+
+  /* NAVBAR */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: var(--nav-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    transition: var(--transition);
+  }
+  .nav-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
+  .nav-logo {
+    width: 38px; height: 38px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: white; font-weight: 800;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+  }
+  .nav-title {
+    font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .nav-links {
+    display: flex; align-items: center; gap: 0.25rem;
+  }
+  .nav-link {
+    padding: 0.45rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.88rem; font-weight: 500;
+    color: var(--text3);
+    text-decoration: none;
+    transition: var(--transition);
+  }
+  .nav-link:hover, .nav-link.active {
+    background: rgba(99,102,241,0.10);
+    color: var(--accent);
+  }
+  .nav-link.active { font-weight: 600; }
+  .nav-actions { display: flex; align-items: center; gap: 0.6rem; }
+
+  .icon-btn {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 1rem;
+    transition: var(--transition);
+    position: relative;
+  }
+  .icon-btn:hover {
+    background: rgba(99,102,241,0.12);
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .badge {
+    position: absolute; top: -5px; right: -5px;
+    background: var(--red);
+    color: white; font-size: 0.6rem;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    border: 2px solid var(--bg);
+  }
+
+  /* Theme toggle */
+  .theme-toggle {
+    width: 52px; height: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .theme-toggle::after {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: var(--transition);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.4);
+  }
+  [data-theme="dark"] .theme-toggle::after { left: 26px; }
+  .theme-icon { font-size: 0.85rem; }
+
+  /* MAIN */
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 88px 1.5rem 3rem;
+    position: relative; z-index: 1;
+  }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+    border-radius: 24px;
+    padding: 3rem 3.5rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    box-shadow: 0 20px 60px rgba(99,102,241,0.35);
+    animation: fadeSlideUp 0.6s ease forwards;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40%; right: -10%;
+    width: 600px; height: 600px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60%; left: 40%;
+    width: 400px; height: 400px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero-content { position: relative; z-index: 1; }
+  .hero h1 {
+    font-size: 2.6rem; font-weight: 900; line-height: 1.1;
+    margin-bottom: 0.75rem; letter-spacing: -1px;
+  }
+  .hero p { font-size: 1.1rem; opacity: 0.88; max-width: 520px; margin-bottom: 2rem; }
+  .hero-btns { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .hero-btn {
+    padding: 0.7rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600; font-size: 0.9rem;
+    text-decoration: none;
+    transition: var(--transition);
+    display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .hero-btn-primary {
+    background: rgba(255,255,255,0.95);
+    color: var(--accent);
+  }
+  .hero-btn-primary:hover { background: white; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+  .hero-btn-secondary {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    backdrop-filter: blur(8px);
+  }
+  .hero-btn-secondary:hover { background: rgba(255,255,255,0.25); transform: translateY(-2px); }
+  .hero-stat-row { display: flex; gap: 2rem; margin-top: 2rem; flex-wrap: wrap; }
+  .hero-stat { opacity: 0.9; }
+  .hero-stat-num { font-size: 1.6rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+  .hero-stat-lbl { font-size: 0.75rem; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* GLASS CARD */
+  .card {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    transition: var(--transition);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 48px rgba(99,102,241,0.14), 0 2px 6px rgba(0,0,0,0.05);
+    border-color: rgba(99,102,241,0.2);
+  }
+
+  /* STAT CARDS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    padding: 1.5rem;
+    animation: fadeSlideUp 0.5s ease forwards;
+    animation-fill-mode: both;
+    cursor: default;
+  }
+  .stat-card:nth-child(1) { animation-delay: 0.05s; }
+  .stat-card:nth-child(2) { animation-delay: 0.10s; }
+  .stat-card:nth-child(3) { animation-delay: 0.15s; }
+  .stat-card:nth-child(4) { animation-delay: 0.20s; }
+  .stat-card:nth-child(5) { animation-delay: 0.25s; }
+  .stat-card:nth-child(6) { animation-delay: 0.30s; }
+  .stat-icon {
+    width: 46px; height: 46px;
+    border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 1rem;
+  }
+  .stat-label { font-size: 0.78rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
+  .stat-value {
+    font-size: 1.8rem; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text); line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .stat-trend {
+    font-size: 0.78rem; font-weight: 600;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .trend-up { color: var(--green); }
+  .trend-down { color: var(--red); }
+
+  /* SECTION HEADER */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .section-title {
+    font-size: 1.1rem; font-weight: 700; color: var(--text);
+  }
+  .section-sub { font-size: 0.8rem; color: var(--text3); margin-top: 2px; }
+  .see-all {
+    font-size: 0.82rem; font-weight: 600; color: var(--accent);
+    text-decoration: none; opacity: 0.8;
+    transition: var(--transition);
+  }
+  .see-all:hover { opacity: 1; }
+
+  /* CHARTS GRID */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .chart-card { padding: 1.5rem; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* FEATURES */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  .feature-card {
+    padding: 1.75rem;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    position: relative;
+    overflow: hidden;
+    animation: fadeSlideUp 0.5s ease forwards;
+    animation-fill-mode: both;
+  }
+  .feature-card:nth-child(1) { animation-delay: 0.1s; }
+  .feature-card:nth-child(2) { animation-delay: 0.2s; }
+  .feature-card:nth-child(3) { animation-delay: 0.3s; }
+  .feature-card:nth-child(4) { animation-delay: 0.4s; }
+  .feature-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0;
+    transition: var(--transition);
+    border-radius: 20px;
+  }
+  .feature-card:hover::after { opacity: 1; }
+  .fc-indigo::after { background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.05)); }
+  .fc-green::after { background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(5,150,105,0.05)); }
+  .fc-cyan::after { background: linear-gradient(135deg, rgba(6,182,212,0.05), rgba(59,130,246,0.05)); }
+  .fc-amber::after { background: linear-gradient(135deg, rgba(245,158,11,0.05), rgba(239,68,68,0.05)); }
+  .feature-icon {
+    width: 52px; height: 52px;
+    border-radius: 15px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; margin-bottom: 1.25rem;
+    position: relative; z-index: 1;
+  }
+  .feature-card h3 {
+    font-size: 1.1rem; font-weight: 700;
+    margin-bottom: 0.5rem; position: relative; z-index: 1;
+  }
+  .feature-card p {
+    font-size: 0.85rem; color: var(--text3); line-height: 1.6;
+    position: relative; z-index: 1; margin-bottom: 1rem;
+  }
+  .feature-link {
+    font-size: 0.82rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 4px;
+    position: relative; z-index: 1;
+    transition: var(--transition);
+  }
+  .feature-card:hover .feature-link { gap: 8px; }
+
+  /* ACTIVITY FEED */
+  .activity-item {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--border);
+    transition: var(--transition);
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: rgba(99,102,241,0.03); border-radius: 10px; padding-left: 0.5rem; }
+  .activity-dot {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; flex-shrink: 0;
+  }
+  .activity-info { flex: 1; }
+  .activity-title { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+  .activity-sub { font-size: 0.77rem; color: var(--text3); }
+  .activity-time { font-size: 0.73rem; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+  /* QUICK ACTIONS */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  .quick-btn {
+    padding: 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+    text-decoration: none; color: var(--text);
+    font-size: 0.8rem; font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+  }
+  .quick-btn:hover {
+    background: rgba(99,102,241,0.10);
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .quick-btn-icon { font-size: 1.4rem; }
+
+  /* BOTTOM ROW */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--text3);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes countUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .counter { animation: countUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  /* ALERT DROPDOWN */
+  .alert-dropdown {
+    position: absolute; top: calc(100% + 12px); right: 0;
+    width: 360px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    overflow: hidden;
+    z-index: 200;
+    opacity: 0; visibility: hidden; transform: translateY(-8px);
+    transition: var(--transition);
+  }
+  .alert-dropdown.open {
+    opacity: 1; visibility: visible; transform: translateY(0);
+  }
+  .alert-header {
+    padding: 1rem 1.25rem;
+    font-weight: 700; font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .alert-item {
+    padding: 0.85rem 1.25rem;
+    display: flex; align-items: center; gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+    transition: var(--transition);
+  }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-item:hover { background: rgba(99,102,241,0.06); }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .hero { padding: 2rem; }
+    .hero h1 { font-size: 1.9rem; }
+    .nav-links { display: none; }
+  }
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .features-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="nav-brand">
+      <div class="nav-logo">S</div>
+      <span class="nav-title">StoreSync</span>
+    </a>
+
+    <div class="nav-links">
+      <a href="index.html" class="nav-link active">Dashboard</a>
+      <a id="inventoryNav" href="inventory.html" class="nav-link">Inventory</a>
+      <a href="billing.html" class="nav-link">Billing</a>
+      <a href="scanning.html" class="nav-link">Scanner</a>
+      <a id="posNav" href="pos.html" class="nav-link">Analytics</a>
+    </div>
+
+    <div class="nav-actions">
+      <!-- Theme toggle -->
+      <div style="display:flex;align-items:center;gap:0.4rem;">
+        <span class="theme-icon" id="themeIcon">☀️</span>
+        <div class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></div>
+        <span class="theme-icon" id="themeIconDark">🌙</span>
+      </div>
+
+      <!-- Notifications -->
+      <div style="position:relative;">
+        <div class="icon-btn" onclick="toggleAlerts()" title="Notifications">
+          🔔
+          <div class="badge" id="alertCount">0</div>
+        </div>
+        <div class="alert-dropdown" id="alertDropdown">
+          <div class="alert-header">
+            <span>Notifications</span>
+            <span style="font-size:0.75rem;color:var(--text3);font-weight:500;" id="alertTime">Just now</span>
+          </div>
+          <div id="alertList">
+            <div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.85rem;">No alerts</div>
+          </div>
+        </div>
+      </div>
+
+      <a id="logoutNav" href="#" onclick="logout()" class="icon-btn" title="Logout" style="font-size:0.85rem;font-weight:600;text-decoration:none;color:var(--red);">
+        ⏻
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+  <!-- HERO BANNER -->
+  <div class="hero" style="margin-bottom:2rem;">
+    <div class="hero-content">
+      <h1>Welcome to StoreSync 👋</h1>
+      <p>Your smart retail command center. Monitor stock, sales, and store performance in real time.</p>
+      <div class="hero-btns">
+        <a href="inventory.html" class="hero-btn hero-btn-primary">📦 Manage Inventory</a>
+        <a href="billing.html" class="hero-btn hero-btn-secondary">🧾 Start Billing</a>
+        <a href="pos.html" class="hero-btn hero-btn-secondary">📊 Analytics</a>
+      </div>
+      <div class="hero-stat-row">
+        <div class="hero-stat">
+          <div class="hero-stat-num" id="heroRevenue">₹0</div>
+          <div class="hero-stat-lbl">Today's Revenue</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num" id="heroProducts">0</div>
+          <div class="hero-stat-lbl">Total Products</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num" id="heroLow">0</div>
+          <div class="hero-stat-lbl">Low Stock</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num" id="heroExp">0</div>
+          <div class="hero-stat-lbl">Expiring Soon</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stats-grid">
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(99,102,241,0.12);">💰</div>
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value" id="statRevenue">₹0</div>
+      <div class="stat-trend trend-up">↑ Live from billing</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(16,185,129,0.12);">📈</div>
+      <div class="stat-label">Today Sales</div>
+      <div class="stat-value" id="statToday">₹0</div>
+      <div class="stat-trend trend-up">↑ Updated live</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(6,182,212,0.12);">📦</div>
+      <div class="stat-label">Total Products</div>
+      <div class="stat-value" id="statProducts">0</div>
+      <div class="stat-trend" style="color:var(--text3);">→ In inventory</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.12);">⚠️</div>
+      <div class="stat-label">Low Stock</div>
+      <div class="stat-value" id="statLow">0</div>
+      <div class="stat-trend trend-down" id="lowTrend">Needs attention</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(239,68,68,0.12);">🚨</div>
+      <div class="stat-label">Expired</div>
+      <div class="stat-value" id="statExpired">0</div>
+      <div class="stat-trend trend-down" id="expTrend">Check expiry</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon" style="background:rgba(139,92,246,0.12);">💎</div>
+      <div class="stat-label">Profit This Month</div>
+      <div class="stat-value" id="statProfit">₹0</div>
+      <div class="stat-trend trend-up">↑ Estimated</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-grid" style="margin-bottom:2rem;">
+    <div class="card chart-card">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Weekly Sales</div>
+          <div class="section-sub">Revenue trend this week</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="salesChart"></canvas>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Stock Status</div>
+          <div class="section-sub">Inventory health overview</div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="stockChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID: Features + Activity + Quick Actions -->
+  <div class="bottom-grid">
+
+    <!-- FEATURES -->
+    <div>
+      <div class="section-header"><div class="section-title">Quick Navigate</div></div>
+      <div class="features-grid" style="grid-template-columns:1fr;">
+        <a href="inventory.html" class="card feature-card fc-indigo">
+          <div class="feature-icon" style="background:rgba(99,102,241,0.12);">📦</div>
+          <h3>Inventory Manager</h3>
+          <p>Add, edit, track products. Manage stock levels and expiry dates with smart alerts.</p>
+          <span class="feature-link" style="color:var(--accent);">Open Inventory →</span>
+        </a>
+        <a href="billing.html" class="card feature-card fc-green">
+          <div class="feature-icon" style="background:rgba(16,185,129,0.12);">🧾</div>
+          <h3>Smart Billing</h3>
+          <p>Generate bills instantly with tax, discount and download professional PDF receipts.</p>
+          <span class="feature-link" style="color:var(--green);">Start Billing →</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- ACTIVITY FEED -->
+    <div class="card" style="padding:1.5rem;">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Recent Activity</div>
+          <div class="section-sub">Live store updates</div>
+        </div>
+        <a href="inventory.html" class="see-all">View all</a>
+      </div>
+      <div id="activityFeed">
+        <div class="activity-item">
+          <div class="activity-dot" style="background:rgba(16,185,129,0.12);">✅</div>
+          <div class="activity-info">
+            <div class="activity-title">System Ready</div>
+            <div class="activity-sub">Connect backend to see live activity</div>
+          </div>
+          <div class="activity-time">Now</div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-dot" style="background:rgba(99,102,241,0.12);">📦</div>
+          <div class="activity-info">
+            <div class="activity-title">Inventory Loaded</div>
+            <div class="activity-sub">Products synced from server</div>
+          </div>
+          <div class="activity-time">Just now</div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-dot" style="background:rgba(245,158,11,0.12);">⚠️</div>
+          <div class="activity-info">
+            <div class="activity-title">Expiry Alerts</div>
+            <div class="activity-sub">Check expiry center for alerts</div>
+          </div>
+          <div class="activity-time">Live</div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-dot" style="background:rgba(6,182,212,0.12);">📊</div>
+          <div class="activity-info">
+            <div class="activity-title">Analytics Ready</div>
+            <div class="activity-sub">View sales charts in POS</div>
+          </div>
+          <div class="activity-time">Active</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS + More Features -->
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+      <div class="card" style="padding:1.5rem;">
+        <div class="section-header"><div class="section-title">Quick Actions</div></div>
+        <div class="quick-actions">
+          <a href="inventory.html" class="quick-btn">
+            <span class="quick-btn-icon">➕</span>
+            Add Product
+          </a>
+          <a href="billing.html" class="quick-btn">
+            <span class="quick-btn-icon">🧾</span>
+            New Bill
+          </a>
+          <a href="scanning.html" class="quick-btn">
+            <span class="quick-btn-icon">📷</span>
+            Scan QR
+          </a>
+          <a href="pos.html" class="quick-btn">
+            <span class="quick-btn-icon">📊</span>
+            Analytics
+          </a>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+        <a href="scanning.html" class="card feature-card fc-cyan" style="padding:1.25rem;">
+          <div class="feature-icon" style="background:rgba(6,182,212,0.12);width:40px;height:40px;border-radius:12px;margin-bottom:0.75rem;">📷</div>
+          <h3 style="font-size:0.95rem;">QR Scanner</h3>
+          <p style="font-size:0.78rem;">Fast checkout scanning</p>
+          <span class="feature-link" style="color:var(--accent3);font-size:0.78rem;">Scan →</span>
+        </a>
+        <a href="pos.html" class="card feature-card fc-amber" style="padding:1.25rem;">
+          <div class="feature-icon" style="background:rgba(245,158,11,0.12);width:40px;height:40px;border-radius:12px;margin-bottom:0.75rem;">📊</div>
+          <h3 style="font-size:0.95rem;">POS Reports</h3>
+          <p style="font-size:0.78rem;">Sales & profit data</p>
+          <span class="feature-link" style="color:var(--orange);font-size:0.78rem;">View →</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div>© 2024 StoreSync — Smart Retail Management System</div>
+</footer>
+
+<script>
+// ── THEME ──────────────────────────────────────────────────────
+const html = document.documentElement;
+const savedTheme = localStorage.getItem('ss_theme') || 'light';
+html.setAttribute('data-theme', savedTheme);
+
+function toggleTheme() {
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('ss_theme', next);
+  updateChartColors();
+}
+
+// ── AUTH ───────────────────────────────────────────────────────
+if (!localStorage.getItem('role')) window.location = 'login.html';
+const role = localStorage.getItem('role');
+if (role === 'worker') {
+  document.getElementById('inventoryNav')?.remove();
+  document.getElementById('posNav')?.remove();
+}
+function logout() { localStorage.clear(); window.location = 'login.html'; }
+
+// ── ALERTS ─────────────────────────────────────────────────────
+document.addEventListener('click', (e) => {
+  const dd = document.getElementById('alertDropdown');
+  if (!e.target.closest('[onclick="toggleAlerts()"]') && !dd?.contains(e.target)) {
+    dd?.classList.remove('open');
+  }
+});
+
+function toggleAlerts() {
+  document.getElementById('alertDropdown').classList.toggle('open');
+}
+
+async function loadAlerts() {
+  try {
+    const res = await fetch('/api/alerts');
+    const alerts = await res.json();
+    document.getElementById('alertCount').textContent = alerts.length;
+    const list = document.getElementById('alertList');
+    if (!alerts.length) {
+      list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--text3);font-size:0.85rem;">All clear ✓</div>';
+      return;
+    }
+    list.innerHTML = alerts.map(a => {
+      const icons = { low: '⚠️', out: '⛔', exp: '📅' };
+      const colors = { low: 'var(--orange)', out: 'var(--red)', exp: 'var(--accent2)' };
+      return `<div class="alert-item">
+        <span style="font-size:1.1rem;">${icons[a.type] || '🔔'}</span>
+        <div>
+          <div style="font-weight:600;color:${colors[a.type] || 'var(--text)'};">${a.name}</div>
+          <div style="color:var(--text3);font-size:0.77rem;">${a.message || a.type}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('alertCount').textContent = '0';
+  }
+}
+
+// ── LOAD STATS ─────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const res = await fetch('/api/inventory');
+    const products = await res.json();
+    const total = products.length;
+    const now = new Date();
+    const low = products.filter(p => p.quantity > 0 && p.quantity <= 5).length;
+    const expired = products.filter(p => p.exp_date && new Date(p.exp_date) < now).length;
+    const expiringSoon = products.filter(p => {
+      if (!p.exp_date) return false;
+      const d = (new Date(p.exp_date) - now) / 86400000;
+      return d >= 0 && d <= 30;
+    }).length;
+
+    animateCounter('statProducts', total, '');
+    animateCounter('statLow', low, '');
+    animateCounter('statExpired', expired, '');
+    animateCounter('heroProducts', total, '');
+    animateCounter('heroLow', low, '');
+    animateCounter('heroExp', expiringSoon, '');
+
+    // Revenue from sales
+    try {
+      const sres = await fetch('/api/sales');
+      const sales = await sres.json();
+      const totalRev = sales.reduce((s, b) => s + (b.total_amount || 0), 0);
+      const today = sales.filter(b => {
+        const bd = new Date(b.sale_date || b.created_at);
+        return bd.toDateString() === now.toDateString();
+      }).reduce((s, b) => s + (b.total_amount || 0), 0);
+      animateCounter('statRevenue', Math.round(totalRev), '₹');
+      animateCounter('statToday', Math.round(today), '₹');
+      animateCounter('statProfit', Math.round(totalRev * 0.3), '₹');
+      animateCounter('heroRevenue', Math.round(today), '₹');
+    } catch {}
+
+    updateStockChart(total - low - expired, low, expired);
+  } catch (e) {
+    console.log('Backend not connected — showing demo data');
+    showDemoData();
+  }
+}
+
+function showDemoData() {
+  animateCounter('statRevenue', 48250, '₹');
+  animateCounter('statToday', 3800, '₹');
+  animateCounter('statProducts', 142, '');
+  animateCounter('statLow', 8, '');
+  animateCounter('statExpired', 3, '');
+  animateCounter('statProfit', 14500, '₹');
+  animateCounter('heroRevenue', 3800, '₹');
+  animateCounter('heroProducts', 142, '');
+  animateCounter('heroLow', 8, '');
+  animateCounter('heroExp', 12, '');
+  updateStockChart(131, 8, 3);
+}
+
+function animateCounter(id, target, prefix = '') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let start = 0;
+  const duration = 1200;
+  const startTime = performance.now();
+  function step(now) {
+    const p = Math.min((now - startTime) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const val = Math.round(eased * target);
+    el.textContent = prefix + val.toLocaleString('en-IN');
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── CHARTS ─────────────────────────────────────────────────────
+let salesChartInst, stockChartInst;
+
+function getChartColors() {
+  const dark = html.getAttribute('data-theme') === 'dark';
+  return {
+    text: dark ? '#a5b4fc' : '#64748b',
+    grid: dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.08)',
+    bg: dark ? 'rgba(15,15,26,0)' : 'rgba(255,255,255,0)'
+  };
+}
+
+function initSalesChart() {
+  const ctx = document.getElementById('salesChart').getContext('2d');
+  const cols = getChartColors();
+  const grad = ctx.createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, 'rgba(99,102,241,0.25)');
+  grad.addColorStop(1, 'rgba(99,102,241,0.01)');
+  salesChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      datasets: [{
+        label: 'Revenue (₹)',
+        data: [4200, 5800, 3900, 7200, 6100, 8900, 5400],
+        borderColor: '#6366f1',
+        backgroundColor: grad,
+        borderWidth: 2.5,
+        tension: 0.45,
+        fill: true,
+        pointBackgroundColor: '#6366f1',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: cols.grid }, ticks: { color: cols.text, font: { size: 11, family: 'Outfit' } } },
+        y: { grid: { color: cols.grid }, ticks: { color: cols.text, font: { size: 11 }, callback: v => '₹' + v.toLocaleString('en-IN') } }
+      }
+    }
+  });
+}
+
+function updateStockChart(ok, low, exp) {
+  const ctx = document.getElementById('stockChart').getContext('2d');
+  if (stockChartInst) stockChartInst.destroy();
+  stockChartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['In Stock', 'Low Stock', 'Expired'],
+      datasets: [{
+        data: [ok || 130, low || 8, exp || 3],
+        backgroundColor: ['#10b981','#f59e0b','#ef4444'],
+        borderWidth: 0,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { padding: 16, color: getChartColors().text, font: { size: 11, family: 'Outfit' }, boxWidth: 12, borderRadius: 4 }
+        }
+      }
+    }
+  });
+}
+
+function updateChartColors() {
+  if (salesChartInst) {
+    const cols = getChartColors();
+    salesChartInst.options.scales.x.grid.color = cols.grid;
+    salesChartInst.options.scales.x.ticks.color = cols.text;
+    salesChartInst.options.scales.y.grid.color = cols.grid;
+    salesChartInst.options.scales.y.ticks.color = cols.text;
+    salesChartInst.update();
+  }
+  if (stockChartInst) {
+    stockChartInst.options.plugins.legend.labels.color = getChartColors().text;
+    stockChartInst.update();
+  }
+}
+
+// ── SCROLL REVEAL ──────────────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.style.opacity = 1; });
+}, { threshold: 0.1 });
+
+// ── INIT ───────────────────────────────────────────────────────
+initSalesChart();
+loadStats();
+loadAlerts();
+setInterval(loadAlerts, 30000);
+</script>
+</body>
+</html>
