@@ -432,6 +432,7 @@ body {
 
 .btn-danger  { background: var(--rose); color: #fff; box-shadow: 0 4px 14px rgba(244,63,94,.3); }
 .btn-success { background: var(--emerald); color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,.3); }
+.btn-warning { background: linear-gradient(135deg,#f59e0b,#d97706); color: #fff; box-shadow: 0 4px 14px rgba(245,158,11,.3); }
 .btn-sm      { padding: 7px 14px; font-size: 13px; border-radius: 10px; }
 .btn-lg      { padding: 14px 28px; font-size: 16px; border-radius: 14px; }
 .btn-icon    { width: 36px; height: 36px; padding: 0; justify-content: center; }

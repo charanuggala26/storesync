@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage Workers — StoreSync</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.reveal { opacity:0; transform:translateY(16px); transition:opacity .5s ease,transform .5s ease; }
+.revealed { opacity:1; transform:none; }
+
+/* Worker cards grid */
+.workers-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap:18px;
+  margin-top:24px;
+}
+
+.worker-card {
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  transition:box-shadow .2s, transform .2s;
+  position:relative;
+  overflow:hidden;
+}
+.worker-card:hover { box-shadow:var(--shadow-lg); transform:translateY(-2px); }
+.worker-card.disabled-card { opacity:.65; }
+
+.worker-card-top {
+  display:flex; align-items:center; gap:14px;
+}
+.worker-avatar {
+  width:48px; height:48px; border-radius:14px;
+  background:var(--gradient-brand);
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; font-weight:700; color:#fff;
+  flex-shrink:0;
+}
+.worker-info { flex:1; min-width:0; }
+.worker-name {
+  font-size:15px; font-weight:700; color:var(--text-primary);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.worker-username {
+  font-size:12px; color:var(--text-muted); margin-top:2px;
+  font-family:monospace;
+}
+
+.worker-status-row {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.status-pill {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:99px; font-size:12px; font-weight:600;
+}
+.status-pill.active {
+  background:rgba(16,185,129,.12); color:#059669;
+  border:1px solid rgba(16,185,129,.25);
+}
+.status-pill.inactive {
+  background:rgba(239,68,68,.1); color:#dc2626;
+  border:1px solid rgba(239,68,68,.2);
+}
+.status-dot-sm {
+  width:6px; height:6px; border-radius:50%; background:currentColor;
+}
+.worker-date {
+  font-size:11px; color:var(--text-muted); margin-left:auto;
+}
+
+.worker-actions {
+  display:flex; gap:8px; margin-top:4px;
+}
+.worker-actions .btn { flex:1; justify-content:center; font-size:13px; padding:8px 0; }
+
+/* Add worker modal */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9000; padding:20px;
+  opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.add-modal {
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:32px;
+  width:100%; max-width:460px;
+  transform:scale(.95) translateY(20px);
+  transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow:var(--shadow-xl, 0 32px 80px rgba(0,0,0,.4));
+}
+.modal-overlay.open .add-modal { transform:scale(1) translateY(0); }
+
+.modal-title {
+  font-size:20px; font-weight:800; color:var(--text-primary); margin-bottom:6px;
+}
+.modal-sub {
+  font-size:13px; color:var(--text-muted); margin-bottom:24px;
+}
+
+/* Password strength */
+.pw-strength-bar {
+  height:4px; border-radius:2px; background:var(--border);
+  margin-top:6px; overflow:hidden;
+}
+.pw-strength-fill {
+  height:100%; border-radius:2px;
+  transition:width .3s, background .3s;
+  width:0%;
+}
+.pw-strength-label {
+  font-size:11px; color:var(--text-muted); margin-top:4px;
+}
+
+/* Confirm delete modal */
+.confirm-modal {
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:32px;
+  width:100%; max-width:400px;
+  text-align:center;
+  transform:scale(.95) translateY(20px);
+  transition:transform .3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow:var(--shadow-xl, 0 32px 80px rgba(0,0,0,.4));
+}
+.modal-overlay.open .confirm-modal { transform:scale(1) translateY(0); }
+
+.confirm-icon {
+  width:60px; height:60px; border-radius:50%;
+  background:rgba(239,68,68,.12);
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto 16px;
+  color:#dc2626;
+}
+.confirm-icon svg { width:28px; height:28px; }
+
+/* Empty state */
+.workers-empty {
+  text-align:center; padding:60px 20px;
+  color:var(--text-muted);
+}
+.workers-empty svg { width:72px; height:72px; margin-bottom:16px; color:var(--text-muted); }
+.workers-empty h3 { font-size:18px; font-weight:700; color:var(--text-primary); margin-bottom:6px; }
+.workers-empty p  { font-size:14px; margin-bottom:20px; }
+
+/* Stats row */
+.worker-stats {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:16px; margin-bottom:24px;
+}
+
+/* Search */
+.search-row {
+  display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:8px;
+}
+.search-row .form-control { background:var(--bg-surface); flex:1; min-width:200px; }
+</style>
+</head>
+<body>
+
+<!-- Preloader -->
+<div id="preloader">
+  <div class="ss-logo-loader"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-4L4 7m8 4v10M4 7v10l8 4"/></svg></div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">Loading Workers…</div>
+</div>
+
+<div id="appNavbar"></div>
+<div id="sidebar"></div>
+
+  <main class="ss-main page-enter" id="mainContent">
+
+    <!-- Page header -->
+    <div class="page-header reveal">
+      <div>
+        <h1 class="page-title">👷 Manage Workers</h1>
+        <p class="page-subtitle">Add, enable, disable or remove worker accounts</p>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Add Worker
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="worker-stats reveal">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-label">Total Workers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#10b981,#059669)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div class="stat-value" id="statActive">—</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+        </div>
+        <div class="stat-value" id="statDisabled">—</div>
+        <div class="stat-label">Disabled</div>
+      </div>
+    </div>
+
+    <!-- Search & filter -->
+    <div class="search-row reveal">
+      <input type="text" class="form-control" id="workerSearch" placeholder="🔍  Search by name or username…" oninput="filterWorkers()">
+      <select class="form-control" id="statusFilter" style="max-width:150px" onchange="filterWorkers()">
+        <option value="all">All Status</option>
+        <option value="active">Active</option>
+        <option value="disabled">Disabled</option>
+      </select>
+    </div>
+
+    <!-- Workers grid -->
+    <div id="workersGrid" class="workers-grid reveal"></div>
+
+</main>
+
+<!-- ─── ADD WORKER MODAL ─── -->
+<div class="modal-overlay" id="addModal" onclick="closeAddOnOverlay(event)">
+  <div class="add-modal">
+    <h2 class="modal-title">➕ Add New Worker</h2>
+    <p class="modal-sub">Create login credentials for a new worker account.</p>
+
+    <div id="addError" style="display:none;padding:10px 14px;border-radius:10px;background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.3);color:#fb7185;font-size:13px;font-weight:600;margin-bottom:14px;"></div>
+
+    <div class="form-group">
+      <label class="form-label">Full Name *</label>
+      <input type="text" class="form-control" id="newName" placeholder="e.g. Ravi Kumar" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username *</label>
+      <input type="text" class="form-control" id="newUsername" placeholder="e.g. ravi.kumar" autocomplete="off" oninput="this.value=this.value.toLowerCase().replace(/\s/g,'')">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password *</label>
+      <input type="password" id="newPassword" class="form-control" placeholder="At least 6 characters" oninput="checkStrength(this.value)">
+      <div class="pw-strength-bar"><div class="pw-strength-fill" id="pwStrengthFill"></div></div>
+      <div class="pw-strength-label" id="pwStrengthLabel"></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="addWorkerBtn" onclick="addWorker()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Add Worker
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CONFIRM DELETE MODAL ─── -->
+<div class="modal-overlay" id="deleteModal" onclick="closeDeleteOnOverlay(event)">
+  <div class="confirm-modal">
+    <div class="confirm-icon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </div>
+    <h3 style="font-size:18px;font-weight:800;color:var(--text-primary);margin-bottom:8px">Delete Worker?</h3>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:24px" id="deleteConfirmText">This will permanently remove the worker account. This cannot be undone.</p>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" id="confirmDeleteBtn" onclick="confirmDelete()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"/></svg>
+        Delete
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="shell.js"></script>
+<script>
+// Manager-only guard
+if (!isManager()) { location.href = 'billing.html'; }
+buildShell('workers');
+
+let allWorkers = [];
+let deleteTargetId = null;
+
+/* ── Load workers ── */
+async function loadWorkers() {
+  try {
+    const res = await fetch('/api/workers');
+    allWorkers = await res.json();
+    updateStats();
+    filterWorkers();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('workersGrid').innerHTML = `
+      <div class="workers-empty" style="grid-column:1/-1">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <h3>Failed to load workers</h3>
+        <p>Check your server connection.</p>
+      </div>`;
+  }
+}
+
+function updateStats() {
+  const active = allWorkers.filter(w => w.is_active).length;
+  document.getElementById('statTotal').textContent   = allWorkers.length;
+  document.getElementById('statActive').textContent  = active;
+  document.getElementById('statDisabled').textContent= allWorkers.length - active;
+}
+
+function filterWorkers() {
+  const q       = document.getElementById('workerSearch').value.toLowerCase();
+  const filter  = document.getElementById('statusFilter').value;
+  const filtered = allWorkers.filter(w => {
+    const matchSearch = w.full_name.toLowerCase().includes(q) || w.username.toLowerCase().includes(q);
+    const matchStatus = filter === 'all' || (filter === 'active' && w.is_active) || (filter === 'disabled' && !w.is_active);
+    return matchSearch && matchStatus;
+  });
+  renderWorkers(filtered);
+}
+
+function renderWorkers(workers) {
+  const grid = document.getElementById('workersGrid');
+  if (!workers.length) {
+    grid.innerHTML = `
+      <div class="workers-empty" style="grid-column:1/-1">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <h3>No workers found</h3>
+        <p>Click "Add Worker" to create the first worker account.</p>
+        <button class="btn btn-primary" onclick="openAddModal()">Add Worker</button>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = workers.map(w => {
+    const initials = w.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const date     = new Date(w.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+    return `
+      <div class="worker-card ${!w.is_active?'disabled-card':''}" id="wcard-${w.id}">
+        <div class="worker-card-top">
+          <div class="worker-avatar" style="${!w.is_active?'background:var(--bg-surface2);color:var(--text-muted)':''}">
+            ${w.is_active ? initials : '🚫'}
+          </div>
+          <div class="worker-info">
+            <div class="worker-name">${escHtml(w.full_name)}</div>
+            <div class="worker-username">@${escHtml(w.username)}</div>
+          </div>
+        </div>
+
+        <div class="worker-status-row">
+          <span class="status-pill ${w.is_active?'active':'inactive'}">
+            <span class="status-dot-sm"></span>
+            ${w.is_active ? 'Active' : 'Disabled'}
+          </span>
+          <span class="worker-date">Added ${date}</span>
+        </div>
+
+        <div class="worker-actions">
+          <button class="btn ${w.is_active?'btn-warning':'btn-success'}" onclick="toggleWorker(${w.id})">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              ${w.is_active
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
+            </svg>
+            ${w.is_active ? 'Disable' : 'Enable'}
+          </button>
+          <button class="btn btn-danger" onclick="openDeleteModal(${w.id}, '${escHtml(w.full_name)}')">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Toggle active/disabled ── */
+async function toggleWorker(id) {
+  try {
+    const res = await fetch(`/api/workers/${id}/toggle`, { method:'PUT' });
+    const data = await res.json();
+    if (res.ok) {
+      const w = allWorkers.find(x => x.id === id);
+      if (w) w.is_active = data.is_active;
+      updateStats();
+      filterWorkers();
+      showToast(data.is_active ? 'Worker Enabled' : 'Worker Disabled',
+        data.is_active ? 'Worker can now log in.' : 'Worker login is now blocked.',
+        data.is_active ? 'success' : 'warning');
+    } else {
+      showToast('Error', data.message || 'Failed to update status', 'error');
+    }
+  } catch(e) {
+    showToast('Error', 'Server error', 'error');
+  }
+}
+
+/* ── Delete modal ── */
+function openDeleteModal(id, name) {
+  deleteTargetId = id;
+  document.getElementById('deleteConfirmText').textContent =
+    `Permanently delete "${name}"? They will no longer be able to log in. This cannot be undone.`;
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('open');
+  deleteTargetId = null;
+}
+function closeDeleteOnOverlay(e) {
+  if (e.target === document.getElementById('deleteModal')) closeDeleteModal();
+}
+
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true; btn.textContent = 'Deleting…';
+  try {
+    const res  = await fetch(`/api/workers/${deleteTargetId}`, { method:'DELETE' });
+    const data = await res.json();
+    if (res.ok) {
+      allWorkers = allWorkers.filter(w => w.id !== deleteTargetId);
+      updateStats();
+      filterWorkers();
+      showToast('Worker Deleted', 'Worker account has been removed.', 'success');
+      closeDeleteModal();
+    } else {
+      showToast('Error', data.message || 'Delete failed', 'error');
+    }
+  } catch(e) {
+    showToast('Error', 'Server error', 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6"/></svg> Delete';
+  }
+}
+
+/* ── Add worker modal ── */
+function openAddModal() {
+  document.getElementById('newName').value = '';
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('addError').style.display = 'none';
+  document.getElementById('pwStrengthFill').style.width = '0%';
+  document.getElementById('pwStrengthLabel').textContent = '';
+  document.getElementById('addModal').classList.add('open');
+  setTimeout(() => document.getElementById('newName').focus(), 300);
+}
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('open');
+}
+function closeAddOnOverlay(e) {
+  if (e.target === document.getElementById('addModal')) closeAddModal();
+}
+
+function checkStrength(pw) {
+  const fill  = document.getElementById('pwStrengthFill');
+  const label = document.getElementById('pwStrengthLabel');
+  if (!pw) { fill.style.width='0%'; label.textContent=''; return; }
+  let score = 0;
+  if (pw.length >= 6)  score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    { w:'20%', bg:'#ef4444', t:'Weak' },
+    { w:'40%', bg:'#f97316', t:'Fair' },
+    { w:'60%', bg:'#eab308', t:'Good' },
+    { w:'80%', bg:'#22c55e', t:'Strong' },
+    { w:'100%', bg:'#10b981', t:'Very Strong' }
+  ];
+  const l = levels[Math.min(score-1, 4)] || levels[0];
+  fill.style.width = l.w;
+  fill.style.background = l.bg;
+  label.textContent = l.t;
+  label.style.color = l.bg;
+}
+
+async function addWorker() {
+  const name     = document.getElementById('newName').value.trim();
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const errEl    = document.getElementById('addError');
+  const btn      = document.getElementById('addWorkerBtn');
+
+  errEl.style.display = 'none';
+
+  if (!name || !username || !password) {
+    errEl.textContent = 'All fields are required.';
+    errEl.style.display = 'block'; return;
+  }
+  if (password.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.';
+    errEl.style.display = 'block'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Adding…';
+  try {
+    const res  = await fetch('/api/workers', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ full_name:name, username, password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeAddModal();
+      showToast('Worker Added', `${name} can now log in as a worker.`, 'success');
+      await loadWorkers();
+    } else {
+      errEl.textContent = data.message || 'Failed to add worker.';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Server error. Please try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Add Worker';
+  }
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Enter key in modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeAddModal(); closeDeleteModal(); }
+});
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  loadWorkers();
+  // Hide preloader
+  setTimeout(() => {
+    const pre = document.getElementById('preloader');
+    if (pre) { pre.classList.add('hidden'); setTimeout(() => pre.remove(), 500); }
+  }, 600);
+});
+</script>
+</body>
+</html>
