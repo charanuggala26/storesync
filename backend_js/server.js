@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const mysql = require("mysql2/promise");
 const path = require("path");
@@ -17,12 +18,12 @@ app.use(express.static(frontend));
    MYSQL CONNECTION
 ========================= */
 const db = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "root",
-    database: "storesync_db",
-    waitForConnections: true,
-    connectionLimit: 10
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10
 });
 
 /* =========================
@@ -221,6 +222,10 @@ app.get("/", (req, res) => {
 /* =========================
    START SERVER
 ========================= */
-app.listen(5000, () => {
-    console.log("StoreSync running at http://localhost:5000");
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.listen(process.env.PORT || 5000, () => {
+  console.log("StoreSync running on port " + (process.env.PORT || 5000));
 });
