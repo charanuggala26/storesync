@@ -18,13 +18,11 @@ app.use(express.static(frontend));
    MYSQL CONNECTION
 ========================= */
 const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10
+    uri: process.env.MYSQL_URL,
+    waitForConnections: true,
+    connectionLimit: 10
 });
+
 
 /* =========================
    GET ALL PRODUCTS
